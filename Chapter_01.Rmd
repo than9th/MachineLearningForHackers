@@ -34,9 +34,6 @@ head(ufo)
 names(ufo) <- c("DateOccurred", "DateReported", "Locatiotn", "ShortDescription", "Duration", "LongDescription")
 ```
 
-```{r}
-ufo$DateOccurred <- as.Date(ufo$DateOccurred, format = "%Y%m%d")
-```
 
 ```{r}
 head(ufo[which(nchar(ufo$DateOccurred)!=8 | nchar(ufo$DateReported)!=8),1])
@@ -54,5 +51,74 @@ ufo <- ufo[good.rows,]
 ```{r}
 ufo$DateOccurred <- as.Date(ufo$DateOccurred, format = "%Y%m%d")
 ufo$DateReported <- as.Date(ufo$DateReported, format = "%Y%m%d")
+```
+
+```{r}
+get.location <- function(l){
+  split.location <- tryCatch(strsplit(l,",")[[1]], error=function(e) return(c(NA, NA)))
+  clean.location <- gsub("^ ", "", split.location)
+  if(length(clean.location) >2 ){
+    return(c(NA, NA))
+  }
+  else{
+    return(clean.location)
+  }
+}
+```
+
+```{r}
+city.state <- lapply(ufo$Locatiotn, get.location)
+head(city.state)
+```
+
+```{r}
+location.matrix <- do.call(rbind, city.state)
+ufo <- transform(ufo, USCity = location.matrix[,1], USState = toupper(location.matrix[,2]), stringsAsFactors = FALSE)
+```
+
+```{r}
+ufo$USState <- state.abb[match(ufo$USState, state.abb)]
+ufo$USCity[is.na(ufo$USState)] <- NA
+```
+
+```{r}
+ufo.us <- subset(ufo, !is.na(USState))
+head(ufo.us)
+```
+
+```{r}
+summary(ufo.us$DateOccurred)
+```
+
+```{r}
+library(ggplot2)
+ggplot(ufo.us, aes(x = DateOccurred)) + geom_histogram()
+
+```
+
+```{r}
+ufo.us.rcnt <- subset(ufo.us, DateOccurred >= as.Date("1990-01-01"))
+nrow(ufo.us.rcnt)
+ggplot(ufo.us.rcnt, aes(x = DateOccurred)) + geom_histogram()
+```
+
+```{r}
+ufo.us.rcnt$YearMonth <- strftime(ufo.us.rcnt$DateOccurred, format = "%Y-%m")
+```
+
+```{r}
+sightings.counts <- ddply(ufo.us.rcnt,.(USState,YearMonth), nrow)
+head(sightings.counts)
+```
+
+```{r}
+date.range <- seq.Date(from=as.Date(min(ufo.us.rcnt$DateOccurred)), to=as.Date(max(ufo.us.rcnt$DateOccurred)), by = "month")
+date.strings <- strftime(date.range, "%Y-%m")
+```
+
+```{r}
+states.dates <- lapply(state.abb, function(s) cbind(s, date.strings))
+states.dates <- data.frame(do.call(rbind, states.dates), stringsAsFactors = FALSE)
+head(states.dates)
 ```
 
